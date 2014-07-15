@@ -33,13 +33,9 @@ public class HandheldService extends WearableListenerService {
 
     @Override
     public void onDataChanged(DataEventBuffer dataEvents) {
-        Log.d(TAG, "onDataChanged: " + dataEvents + " for " + getPackageName());
-
         for (DataEvent event : dataEvents) {
             if (event.getType() == DataEvent.TYPE_CHANGED) {
                 String context = DataMap.fromByteArray(event.getDataItem().getData()).get(FIELD_CONTEXT);
-                Log.d(TAG, "received context: " + context);
-
                 saveCurrentContext(context);
                 uploadContext(context);
                 break;
@@ -61,7 +57,6 @@ public class HandheldService extends WearableListenerService {
         editor.putString(getString(R.string.current_context), context);
         editor.putLong(getString(R.string.last_updated), (new Date().getTime()));
         editor.commit();
-        Log.d(TAG, "saved to shared pref");
     }
 
     // save the current context to a server

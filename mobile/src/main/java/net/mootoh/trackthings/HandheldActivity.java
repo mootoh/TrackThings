@@ -125,8 +125,17 @@ public class HandheldActivity extends Activity {
         ParseObject current = parseObjects.get(0);
         int i = 0;
         for (ParseObject po: parseObjects) {
-            if (i++ == 0)
+            if (i++ == 0) {
                 continue;
+            }
+
+            String thing = (String) current.get("thing");
+            if (thing.equals("stop") || thing.equals("ストップ")) {
+                // ignore idle time
+                current = po;
+                continue;
+            }
+
             Date first = (Date)current.get("timestamp");
             Date second = (Date)po.get("timestamp");
             long diff = second.getTime() - first.getTime();
@@ -139,14 +148,17 @@ public class HandheldActivity extends Activity {
             current = po;
         }
 
-        Date currentTimestamp = (Date)current.get("timestamp");
-        Date now = new Date();
-        long diff = now.getTime() - currentTimestamp.getTime();
+        String thing = (String) current.get("thing");
+        if (!thing.equals("stop") && !!thing.equals("ストップ")) {
+            Date currentTimestamp = (Date)current.get("timestamp");
+            Date now = new Date();
+            long diff = now.getTime() - currentTimestamp.getTime();
 
-        Map<String, Object> item = new HashMap<String, Object>();
-        item.put("thing", current.get("thing"));
-        item.put("duration", diff);
-        history.add(item);
+            Map<String, Object> item = new HashMap<String, Object>();
+            item.put("thing", current.get("thing"));
+            item.put("duration", diff);
+            history.add(item);
+        }
 
         Collections.reverse(history);
 
