@@ -5,6 +5,7 @@ import android.app.Notification;
 import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.speech.RecognizerIntent;
 import android.support.v4.app.NotificationCompat;
@@ -14,17 +15,31 @@ import android.view.LayoutInflater;
 import android.view.ViewGroup;
 import android.widget.TextView;
 
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 class TrackAdapter extends WearableListView.Adapter {
     private final Context context_;
     private final LayoutInflater layoutInflater_;
-    String[] items = {"Say...", "Work", "Book", "Family"};
+    String[] baseItems = {"Say...", "Stop"};
+    List<String> items = new ArrayList<String>();
 
     public TrackAdapter(Context context) {
         super();
         context_ = context;
         layoutInflater_ = LayoutInflater.from(context);
+
+        SharedPreferences pref = context.getSharedPreferences(context.getString(R.string.SHARED_PREF_KEY), Context.MODE_PRIVATE);
+        int count = pref.getInt("contextCount", 0);
+        for (int i=0; i<count; i++) {
+            String item = pref.getString("context_" + i, "");
+            items.add(item);
+        }
+    }
+
+    public List<String> getItems() {
+        return items;
     }
 
     @Override
@@ -35,38 +50,72 @@ class TrackAdapter extends WearableListView.Adapter {
     @Override
     public void onBindViewHolder(WearableListView.ViewHolder holder, int i) {
         TextView view = (TextView)holder.itemView.findViewById(R.id.name);
-        view.setText(items[i]);
+
+        String item;
+        if (i < 2)
+            item = baseItems[i];
+        else
+            item = items.get(i-2);
+        view.setText(item);
         holder.itemView.setTag(i);
     }
 
     @Override
     public int getItemCount() {
-        return items.length;
+        return items.size() + 2;
+    }
+
+    public void choose(int position) {
+        if (position < 2)
+            return;
+        position -= 2;
+
+        // move the chosen item to the first place
+        String chosen = items.remove(position);
+        items.add(0, chosen);
+    }
+
+    public void add(String newContext) {
+        if (items.contains(newContext)) {
+            choose(items.indexOf(newContext) + 2);
+            return;
+        }
+
+        items.remove(items.size()-1);
+        items.add(0, newContext);
     }
 }
 
 public class TrackActivity extends Activity {
     private static final int SPEECH_REQUEST_CODE = 2;
     private static final String TAG = "TrackActivity";
+    TrackAdapter adapter_;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
+        loadPrefixedItemsUnlessExist();
+
         setContentView(R.layout.activity_track);
         WearableListView wlv = (WearableListView)findViewById(R.id.listView);
-        wlv.setAdapter(new TrackAdapter(this));
+
+        adapter_ = new TrackAdapter(this);
+        wlv.setAdapter(adapter_);
         wlv.setClickListener(new WearableListView.ClickListener() {
             @Override
             public void onClick(WearableListView.ViewHolder holder) {
                 Integer position = (Integer)holder.itemView.getTag();
-                if (position == 0) {
+                if (position == 0) { // say
                     displaySpeechRecognizer();
                     return;
+                } else if (position == 1) { // stop
+                    return;
                 }
-
                 TextView tv = (TextView)holder.itemView.findViewById(R.id.name);
                 String text = tv.getText().toString();
+                adapter_.choose(position);
+                saveItems();
                 sendTrackingContext(text);
             }
 
@@ -74,6 +123,29 @@ public class TrackActivity extends Activity {
             public void onTopEmptyRegionClick() {
             }
         });
+    }
+
+    private void saveItems() {
+        SharedPreferences pref = getSharedPreferences(getString(R.string.SHARED_PREF_KEY), Context.MODE_PRIVATE);
+        saveItemsInternal(pref.edit(), adapter_.getItems());
+    }
+
+    private void saveItemsInternal(SharedPreferences.Editor editor, List<String> items) {
+        for (int i=0; i<items.size(); i++) {
+            editor.putString("context_" + i, items.get(i));
+        }
+        editor.putInt("contextCount", items.size());
+        editor.commit();
+    }
+
+    private void loadPrefixedItemsUnlessExist() {
+        SharedPreferences pref = getSharedPreferences(getString(R.string.SHARED_PREF_KEY), Context.MODE_PRIVATE);
+        int count = pref.getInt("contextCount", 0);
+        if (count > 0)
+            return;
+
+        final String[] prefixedItems = {"Work", "Book", "Family"};
+        saveItemsInternal(pref.edit(), Arrays.asList(prefixedItems));
     }
 
     private void kickService(String message) {
@@ -112,7 +184,7 @@ public class TrackActivity extends Activity {
                     RecognizerIntent.EXTRA_RESULTS);
             String spokenText = results.get(0);
 
-            // Do something with spokenText
+            adapter_.add(spokenText);
             sendTrackingContext(spokenText);
         }
         super.onActivityResult(requestCode, resultCode, data);

@@ -1,11 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-
     <string name="app_name">TrackThings</string>
-
-    <string-array name="context_choices">
-        <item>Work</item>
-        <item>Household</item>
-        <item>Social</item>
-    </string-array>
+    <string name="SHARED_PREF_KEY">TrackThingsSharedPref</string>
 </resources>
