@@ -185,6 +185,7 @@ public class TrackActivity extends Activity {
             String spokenText = results.get(0);
 
             adapter_.add(spokenText);
+            saveItems();
             sendTrackingContext(spokenText);
         }
         super.onActivityResult(requestCode, resultCode, data);
