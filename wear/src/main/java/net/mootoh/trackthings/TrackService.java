@@ -14,9 +14,12 @@ import java.util.concurrent.TimeUnit;
 
 public class TrackService extends IntentService {
     public static final String ACTION_SEND_CONTEXT = "ACTION_SEND_CONTEXT";
+    public static final String ACTION_STOP_CONTEXT = "ACTION_STOP_CONTEXT";
     private static final String TAG = "TrackService";
     private static final String PATH_CONTEXTS = "/contexts";
     private static final String FIELD_CONTEXT = "context";
+    private static final String FIELD_COMMAND = "command";
+
     private GoogleApiClient googleApiClient_;
     private static final long CONNECTION_TIME_OUT_MS = 100;
 
@@ -49,21 +52,29 @@ public class TrackService extends IntentService {
     @Override
     protected void onHandleIntent(Intent intent) {
         Log.d(TAG, "onHandleIntent");
-        String context = intent.getStringExtra("context");
-        if (context != null) {
-            Log.d(TAG, "   --- context to send:" + context);
-        }
 
         googleApiClient_.blockingConnect(CONNECTION_TIME_OUT_MS, TimeUnit.MILLISECONDS);
         if (Log.isLoggable(TAG, Log.VERBOSE)) {
             Log.v(TAG, "TrackService.onHandleIntent");
         }
-        if (googleApiClient_.isConnected()) {
-            if (intent.getAction().equals(ACTION_SEND_CONTEXT)) {
-                PutDataMapRequest putDataMapRequest = PutDataMapRequest.create(PATH_CONTEXTS);
-                putDataMapRequest.getDataMap().putString(FIELD_CONTEXT, context);
-                Wearable.DataApi.putDataItem(googleApiClient_, putDataMapRequest.asPutDataRequest()).await();
-            }
+        if (! googleApiClient_.isConnected()) {
+            Log.e(TAG, "Google API client not connected, nothing can do at this moment from wearable");
+            return;
         }
+
+        PutDataMapRequest putDataMapRequest = PutDataMapRequest.create(PATH_CONTEXTS);
+
+        String action = intent.getAction();
+        if (action.equals(ACTION_SEND_CONTEXT)) {
+            String context = intent.getStringExtra("context");
+            Log.d(TAG, "   --- context to send:" + context);
+
+            putDataMapRequest.getDataMap().putString(FIELD_COMMAND, "update");
+            putDataMapRequest.getDataMap().putString(FIELD_CONTEXT, context);
+        } else if (action.equals(ACTION_STOP_CONTEXT)) {
+            putDataMapRequest.getDataMap().putString(FIELD_COMMAND, "stop");
+        }
+
+        Wearable.DataApi.putDataItem(googleApiClient_, putDataMapRequest.asPutDataRequest()).await();
     }
 }

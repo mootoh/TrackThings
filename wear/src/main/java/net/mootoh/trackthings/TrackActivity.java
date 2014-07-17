@@ -94,14 +94,13 @@ public class TrackActivity extends Activity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-
         loadPrefixedItemsUnlessExist();
-
         setContentView(R.layout.activity_track);
-        WearableListView wlv = (WearableListView)findViewById(R.id.listView);
 
+        WearableListView wlv = (WearableListView)findViewById(R.id.listView);
         adapter_ = new TrackAdapter(this);
         wlv.setAdapter(adapter_);
+
         wlv.setClickListener(new WearableListView.ClickListener() {
             @Override
             public void onClick(WearableListView.ViewHolder holder) {
@@ -110,6 +109,7 @@ public class TrackActivity extends Activity {
                     displaySpeechRecognizer();
                     return;
                 } else if (position == 1) { // stop
+                    stopCurrentContext();
                     return;
                 }
                 TextView tv = (TextView)holder.itemView.findViewById(R.id.name);
@@ -123,6 +123,13 @@ public class TrackActivity extends Activity {
             public void onTopEmptyRegionClick() {
             }
         });
+    }
+
+    private void stopCurrentContext() {
+        Intent intent = new Intent(this, TrackService.class);
+        intent.setAction(TrackService.ACTION_STOP_CONTEXT);
+        startService(intent);
+        finish();
     }
 
     private void saveItems() {
@@ -153,10 +160,6 @@ public class TrackActivity extends Activity {
         intent.putExtra("context", message);
         intent.setAction(TrackService.ACTION_SEND_CONTEXT);
         startService(intent);
-        /*
-        PendingIntent pi = PendingIntent.getService(this, 0, intent, PendingIntent.FLAG_CANCEL_CURRENT);
-        startService(pi);
-        */
     }
 
     private void sendTrackingContext(String text) {
@@ -170,12 +173,9 @@ public class TrackActivity extends Activity {
         Intent intent = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
         intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL,
                 RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
-        // Start the activity, the intent will be populated with the speech text
         startActivityForResult(intent, SPEECH_REQUEST_CODE);
     }
 
-    // This callback is invoked when the Speech Recognizer returns.
-// This is where you process the intent and extract the speech text from the intent.
     @Override
     protected void onActivityResult(int requestCode, int resultCode,
                                     Intent data) {

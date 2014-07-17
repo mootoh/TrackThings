@@ -73,7 +73,7 @@ class HandheldAdapter extends BaseAdapter {
         return v;
     }
 
-    String calcDuration(long diff) {
+    static public String calcDuration(long diff) {
         long diffSeconds = diff / 1000 % 60;
         long diffMinutes = diff / (60 * 1000) % 60;
         long diffHours   = diff / (60 * 60 * 1000) % 60;
@@ -86,6 +86,7 @@ class HandheldAdapter extends BaseAdapter {
 public class HandheldActivity extends Activity {
     private static final String TAG = "HandheldActivity";
     List<Map<String, Object>> history = new ArrayList<Map<String, Object>>();
+    Map<String, Object> current;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -113,47 +114,40 @@ public class HandheldActivity extends Activity {
                     return;
                 }
                 updateHistory(parseObjects);
+                updateTitle();
             }
         });
+    }
+
+    private void updateTitle() {
+        if (current == null) {
+            this.setTitle("Idle");
+            return;
+        }
+
+        this.setTitle(current.get("thing") + ": " + HandheldAdapter.calcDuration((Long)current.get("duration")));
     }
 
     private void updateHistory(List<ParseObject> parseObjects) {
         history.clear();
 
-        ParseObject current = parseObjects.get(0);
-        int i = 0;
         for (ParseObject po: parseObjects) {
-            if (i++ == 0) {
+
+            String thing = (String)po.get("thing");
+            Date createdAt = po.getCreatedAt();
+            Date finishedAt = (Date)po.get("finishedAt");
+            if (finishedAt == null) { // current task
+                Date now = new Date();
+                long diff = now.getTime() - createdAt.getTime();
+                current = new HashMap<String, Object>();
+                current.put("thing", thing);
+                current.put("duration", diff);
                 continue;
             }
 
-            String thing = (String) current.get("thing");
-            if (thing.equals("stop") || thing.equals("ストップ")) {
-                // ignore idle time
-                current = po;
-                continue;
-            }
-
-            Date first = (Date)current.get("timestamp");
-            Date second = (Date)po.get("timestamp");
-            long diff = second.getTime() - first.getTime();
-
+            long diff = finishedAt.getTime() - createdAt.getTime();
             Map<String, Object> item = new HashMap<String, Object>();
-            item.put("thing", current.get("thing"));
-            item.put("duration", diff);
-            history.add(item);
-
-            current = po;
-        }
-
-        String thing = (String) current.get("thing");
-        if (!thing.equals("stop") && !!thing.equals("ストップ")) {
-            Date currentTimestamp = (Date)current.get("timestamp");
-            Date now = new Date();
-            long diff = now.getTime() - currentTimestamp.getTime();
-
-            Map<String, Object> item = new HashMap<String, Object>();
-            item.put("thing", current.get("thing"));
+            item.put("thing", thing);
             item.put("duration", diff);
             history.add(item);
         }
@@ -183,5 +177,4 @@ public class HandheldActivity extends Activity {
         }
         return super.onOptionsItemSelected(item);
     }
-
 }
