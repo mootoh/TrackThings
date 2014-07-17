@@ -92,8 +92,6 @@ public class HandheldActivity extends Activity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_handheld);
 
-        Parse.initialize(this, getString(R.string.parse_app_id), getString(R.string.parse_client_key));
-
         ListView lv = (ListView)findViewById(R.id.listView);
         lv.setAdapter(new HandheldAdapter(history, this));
    }

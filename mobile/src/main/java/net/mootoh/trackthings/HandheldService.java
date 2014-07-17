@@ -2,13 +2,11 @@ package net.mootoh.trackthings;
 
 import android.content.Intent;
 import android.content.SharedPreferences;
-import android.util.Log;
 
 import com.google.android.gms.wearable.DataEvent;
 import com.google.android.gms.wearable.DataEventBuffer;
 import com.google.android.gms.wearable.DataMap;
 import com.google.android.gms.wearable.WearableListenerService;
-import com.parse.Parse;
 import com.parse.ParseException;
 import com.parse.ParseObject;
 import com.parse.SaveCallback;
@@ -21,17 +19,6 @@ public class HandheldService extends WearableListenerService {
     public static final String SHARED_PREF = "TrackThingsSharedPref";
 
     @Override
-    public void onCreate() {
-        super.onCreate();
-//        Parse.initialize(this, getString(R.string.parse_app_id), getString(R.string.parse_client_key));
-    }
-
-    @Override
-    public void onDestroy() {
-        super.onDestroy();
-    }
-
-    @Override
     public void onDataChanged(DataEventBuffer dataEvents) {
         for (DataEvent event : dataEvents) {
             if (event.getType() == DataEvent.TYPE_CHANGED) {
@@ -41,7 +28,6 @@ public class HandheldService extends WearableListenerService {
                 break;
             }
         }
-
     }
 
     private void kickMainActivity() {
