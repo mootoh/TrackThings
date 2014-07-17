@@ -22,10 +22,13 @@ import com.parse.ParseQuery;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.TreeMap;
 
 class HandheldAdapter extends BaseAdapter {
     private final List<Map<String, Object>> history;
@@ -157,6 +160,43 @@ public class HandheldActivity extends Activity {
         ListView lv = (ListView)findViewById(R.id.listView);
         HandheldAdapter adapter = (HandheldAdapter)lv.getAdapter();
         adapter.notifyDataSetChanged();
+
+        dailySummary();
+    }
+
+    // http://stackoverflow.com/questions/109383/how-to-sort-a-mapkey-value-on-the-values-in-java
+    class ValueComparator implements Comparator<String> {
+        Map<String, Long> base;
+
+        public ValueComparator(Map<String, Long> base) {
+            this.base = base;
+        }
+
+        @Override
+        public int compare(String lhs, String rhs) {
+            if (base.get(lhs) >= base.get(rhs))
+                return -1;
+            return 1;
+        }
+    }
+    private void dailySummary() {
+        Map<String, Long> items = new HashMap<String, Long>();
+        for (Map<String, Object> item : history) {
+            String title = (String)item.get("thing");
+
+            Long duration = (Long)items.get(title);
+            if (duration == null) {
+                duration = new Long(0);
+            }
+            duration += (Long)item.get("duration");
+            items.put(title, duration);
+        }
+
+        ValueComparator bvc = new ValueComparator(items);
+        TreeMap<String, Long> sortedMap = new TreeMap<String, Long>(bvc);
+        sortedMap.putAll(items);;
+
+        Log.d(TAG, "results: " + sortedMap);
     }
 
     @Override
