@@ -39,7 +39,7 @@ public class DailySummaryActivity extends Activity {
         wlv.setAdapter(new BaseAdapter() {
             @Override
             public int getCount() {
-                return items.size() + 1;
+                return items.size();
             }
 
             @Override
@@ -55,18 +55,12 @@ public class DailySummaryActivity extends Activity {
             @Override
             public View getView(int position, View convertView, ViewGroup parent) {
                 View v = convertView;
-                LayoutInflater inflater = self.getLayoutInflater();
-
-                if (position-- == 0) {
-                    if (v == null || v.findViewById(R.id.name) != null)
-                        v = inflater.inflate(R.layout.history_header_layout, null);
-                    return v;
+                if (v == null) {
+                    LayoutInflater inflater = self.getLayoutInflater();
+                    v = inflater.inflate(R.layout.history_item_layout, null);
                 }
 
                 Map.Entry<String, Integer> item = items.get(position);
-
-                if (v == null || v.findViewById(R.id.name) == null)
-                    v = inflater.inflate(R.layout.history_item_layout, null);
 
                 TextView nm = (TextView)v.findViewById(R.id.name);
                 nm.setText(item.getKey());
@@ -83,7 +77,6 @@ public class DailySummaryActivity extends Activity {
         String jsonStr = intent.getStringExtra("json");
         try {
             JSONObject obj = new JSONObject(jsonStr);
-            Log.d(TAG, "json = " + obj);
             Map<String, Integer> map = new HashMap<String, Integer>();
             Iterator<?> keys = obj.keys();
             while (keys.hasNext()) {
