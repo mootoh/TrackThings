@@ -21,7 +21,6 @@ class TrackAdapter extends WearableListView.Adapter {
     private final LayoutInflater layoutInflater_;
     String[] baseItems = {"Say...", "Stop"};
     List<String> items = new ArrayList<String>();
-    String currentContext;
 
     public TrackAdapter(Context context) {
         super();
@@ -33,8 +32,6 @@ class TrackAdapter extends WearableListView.Adapter {
             String item = pref.getString("context_" + i, "");
             items.add(item);
         }
-
-        currentContext = pref.getString("currentContext", "Idle");
     }
 
     public List<String> getItems() {
@@ -42,35 +39,20 @@ class TrackAdapter extends WearableListView.Adapter {
     }
 
     @Override
-    public int getItemViewType(int position) {
-        return position == 0 ? 0 : 1;
-    }
-
-    @Override
     public WearableListView.ViewHolder onCreateViewHolder(ViewGroup viewGroup, int viewType) {
-        return viewType == 0
-                ? new WearableListView.ViewHolder(layoutInflater_.inflate(R.layout.current_item_layout, null))
-                : new WearableListView.ViewHolder(layoutInflater_.inflate(R.layout.track_item_layout, null));
+        return new WearableListView.ViewHolder(layoutInflater_.inflate(R.layout.track_item_layout, null));
     }
 
     @Override
     public void onBindViewHolder(WearableListView.ViewHolder holder, int i) {
-        if (i-- == 0) {
-            TextView cc = (TextView)holder.itemView.findViewById(R.id.current_context);
-            cc.setText("Current: ");
-
-            TextView cts = (TextView)holder.itemView.findViewById(R.id.current_time_sofar);
-            cts.setText(currentContext);
-            holder.itemView.setTag(-1);
-
-            return;
-        }
-
         TextView view = (TextView)holder.itemView.findViewById(R.id.name);
 
         String item;
         if (i < 2)
             item = baseItems[i];
+        else if (i >= 2 + items.size()) {
+            item = "Summary...";
+        }
         else
             item = items.get(i-2);
         view.setText(item);
@@ -83,9 +65,9 @@ class TrackAdapter extends WearableListView.Adapter {
     }
 
     public void choose(int position) {
-        if (position < 3)
+        if (position < 2 || position >= 2 + items.size())
             return;
-        position -= 3;
+        position -= 2;
 
         // move the chosen item to the first place
         String chosen = items.remove(position);
@@ -94,26 +76,33 @@ class TrackAdapter extends WearableListView.Adapter {
 
     public void add(String newContext) {
         if (items.contains(newContext)) {
-            choose(items.indexOf(newContext) + 3);
+            choose(items.indexOf(newContext) + 2);
             return;
         }
 
         items.remove(items.size()-1);
         items.add(0, newContext);
     }
-
 }
 
 public class TrackActivity extends Activity {
     private static final int SPEECH_REQUEST_CODE = 2;
     private static final String TAG = "TrackActivity";
     TrackAdapter adapter_;
+    String currentContext;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         loadPrefixedItemsUnlessExist();
         setContentView(R.layout.activity_track);
+
+        SharedPreferences pref = getSharedPreferences(getString(R.string.SHARED_PREF_KEY), Context.MODE_PRIVATE);
+        currentContext = pref.getString("currentContext", "Idle");
+        TextView cts = (TextView)findViewById(R.id.current_context);
+        cts.setText(currentContext);
+
+        final TrackActivity self = this;
 
         WearableListView wlv = (WearableListView)findViewById(R.id.listView);
         adapter_ = new TrackAdapter(this);
@@ -133,6 +122,9 @@ public class TrackActivity extends Activity {
                     stopCurrentContext();
                     updateCurrentContext("Idle");
                     return;
+                } else if (position == 2 + adapter_.getItems().size()) {
+                    kickHandheldToOpenSummary();
+                    return;
                 }
                 TextView tv = (TextView)holder.itemView.findViewById(R.id.name);
                 String text = tv.getText().toString();
@@ -146,6 +138,13 @@ public class TrackActivity extends Activity {
             public void onTopEmptyRegionClick() {
             }
         });
+    }
+
+    private void kickHandheldToOpenSummary() {
+        Intent intent = new Intent(this, TrackService.class);
+        intent.setAction(TrackService.ACTION_SHOW_SUMMARY);
+        startService(intent);
+        finish();
     }
 
     private void stopCurrentContext() {

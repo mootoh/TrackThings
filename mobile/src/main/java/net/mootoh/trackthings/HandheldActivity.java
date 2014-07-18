@@ -104,45 +104,22 @@ class HandheldAdapter extends BaseAdapter {
 
 public class HandheldActivity extends Activity {
     private static final String TAG = "HandheldActivity";
-    private static final String SHOW_DAILY_SUMMARY_PATH = "/show_daily_summary";
-    List<Map<String, Object>> history = new ArrayList<Map<String, Object>>();
-    Map<String, Object> current;
-    private GoogleApiClient googleApiClient_;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_handheld);
 
+        TrackApplication app = (TrackApplication)getApplication();
+
         ListView lv = (ListView)findViewById(R.id.listView);
-        lv.setAdapter(new HandheldAdapter(history, this));
-
-        googleApiClient_ = new GoogleApiClient.Builder(this)
-                .addApi(Wearable.API)
-                .addConnectionCallbacks(new GoogleApiClient.ConnectionCallbacks() {
-                    @Override
-                    public void onConnected(Bundle bundle) {
-                        Log.d(TAG, "connected to google api");
-                    }
-
-                    @Override
-                    public void onConnectionSuspended(int i) {
-                        Log.d(TAG, "connection suspended");
-                    }
-                })
-                .addOnConnectionFailedListener(new GoogleApiClient.OnConnectionFailedListener() {
-                    @Override
-                    public void onConnectionFailed(ConnectionResult connectionResult) {
-                        Log.e(TAG, "google api connection failed: " + connectionResult.toString());
-                    }
-                }).build();
+        lv.setAdapter(new HandheldAdapter(app.getHistory(), this));
     }
 
     @Override
     protected void onResume() {
         super.onResume();
         downloadFromParse();
-        googleApiClient_.connect();
     }
 
     private void downloadFromParse() {
@@ -155,66 +132,28 @@ public class HandheldActivity extends Activity {
                     Log.e(TAG, "failed in retrieving data from Parse.com");
                     return;
                 }
-                updateHistory(parseObjects);
+
+                TrackApplication app = (TrackApplication)getApplication();
+                app.updateHistory(parseObjects);
+
+                ListView lv = (ListView)findViewById(R.id.listView);
+                HandheldAdapter adapter = (HandheldAdapter)lv.getAdapter();
+                adapter.notifyDataSetChanged();
+
                 updateTitle();
             }
         });
     }
 
     private void updateTitle() {
+        TrackApplication app = (TrackApplication)getApplication();
+        HashMap<String, Object> current = app.getCurrent();
         if (current == null) {
             this.setTitle("Idle");
             return;
         }
 
         this.setTitle(current.get("thing") + ": " + HandheldAdapter.calcDuration((Long)current.get("duration")));
-    }
-
-    private void updateHistory(List<ParseObject> parseObjects) {
-        history.clear();
-
-        for (ParseObject po: parseObjects) {
-
-            String thing = (String)po.get("thing");
-            Date createdAt = po.getCreatedAt();
-            Date finishedAt = (Date)po.get("finishedAt");
-            if (finishedAt == null) { // current task
-                Date now = new Date();
-                long diff = now.getTime() - createdAt.getTime();
-                current = new HashMap<String, Object>();
-                current.put("thing", thing);
-                current.put("duration", diff);
-                continue;
-            }
-
-            long diff = finishedAt.getTime() - createdAt.getTime();
-            Map<String, Object> item = new HashMap<String, Object>();
-            item.put("thing", thing);
-            item.put("duration", diff);
-            history.add(item);
-        }
-
-        Collections.reverse(history);
-
-        ListView lv = (ListView)findViewById(R.id.listView);
-        HandheldAdapter adapter = (HandheldAdapter)lv.getAdapter();
-        adapter.notifyDataSetChanged();
-    }
-
-    // http://stackoverflow.com/questions/109383/how-to-sort-a-mapkey-value-on-the-values-in-java
-    class ValueComparator implements Comparator<String> {
-        Map<String, Long> base;
-
-        public ValueComparator(Map<String, Long> base) {
-            this.base = base;
-        }
-
-        @Override
-        public int compare(String lhs, String rhs) {
-            if (base.get(lhs) >= base.get(rhs))
-                return -1;
-            return 1;
-        }
     }
 
     @Override
@@ -233,57 +172,12 @@ public class HandheldActivity extends Activity {
         if (id == R.id.action_settings) {
             return true;
         } else if (id == R.id.action_daily_summary) {
-            showDailySummary();
+            TrackApplication app = (TrackApplication)getApplication();
+            app.showDailySummary();
             return true;
         }
         return super.onOptionsItemSelected(item);
     }
 
-    private Map<String, Long> constructDailySummary() {
-        Map<String, Long> items = new HashMap<String, Long>();
-        for (Map<String, Object> item : history) {
-            String title = (String)item.get("thing");
 
-            Long duration = (Long)items.get(title);
-            if (duration == null) {
-                duration = new Long(0);
-            }
-            duration += (Long)item.get("duration");
-            items.put(title, duration);
-        }
-
-        ValueComparator bvc = new ValueComparator(items);
-        TreeMap<String, Long> sortedMap = new TreeMap<String, Long>(bvc);
-        sortedMap.putAll(items);;
-        return sortedMap;
-    }
-
-    private void showDailySummary() {
-        Map<String, Long> sortedMap = constructDailySummary();
-        Iterator it = sortedMap.entrySet().iterator();
-
-        final JSONObject json = new JSONObject();
-        while (it.hasNext()) {
-            Map.Entry<String, Long> item = (Map.Entry<String, Long>)it.next();
-            try {
-                json.put(item.getKey(), item.getValue());
-            } catch (JSONException e) {
-                e.printStackTrace();
-            }
-        }
-
-        Log.d(TAG, json.toString());
-
-        Wearable.NodeApi.getConnectedNodes(googleApiClient_).setResultCallback(new ResultCallback<NodeApi.GetConnectedNodesResult>() {
-            @Override
-            public void onResult(NodeApi.GetConnectedNodesResult nodes) {
-                Log.d(TAG, "get connected nodes result");
-                for (Node node : nodes.getNodes()) {
-                    Log.d(TAG, "node " + node.getId());
-                    Wearable.MessageApi.sendMessage(googleApiClient_, node.getId(), SHOW_DAILY_SUMMARY_PATH, json.toString().getBytes());
-                    return;
-                }
-            }
-        });
-    }
 }

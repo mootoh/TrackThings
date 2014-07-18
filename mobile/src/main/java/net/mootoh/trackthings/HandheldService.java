@@ -4,9 +4,13 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.util.Log;
 
+import com.google.android.gms.common.api.ResultCallback;
 import com.google.android.gms.wearable.DataEvent;
 import com.google.android.gms.wearable.DataEventBuffer;
 import com.google.android.gms.wearable.DataMap;
+import com.google.android.gms.wearable.Node;
+import com.google.android.gms.wearable.NodeApi;
+import com.google.android.gms.wearable.Wearable;
 import com.google.android.gms.wearable.WearableListenerService;
 import com.parse.GetCallback;
 import com.parse.ParseException;
@@ -14,7 +18,14 @@ import com.parse.ParseObject;
 import com.parse.ParseQuery;
 import com.parse.SaveCallback;
 
+import org.json.JSONException;
+import org.json.JSONObject;
+
 import java.util.Date;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.Map;
+import java.util.TreeMap;
 
 public class HandheldService extends WearableListenerService {
     private static final String TAG = "HandheldService";
@@ -39,6 +50,9 @@ public class HandheldService extends WearableListenerService {
                     stopCurrent();
                     saveCurrentContext(context);
                     uploadContext(context);
+                } else if (command.equals("show_summary")) {
+                    TrackApplication app = (TrackApplication)getApplication();
+                    app.showDailySummary();
                 }
             }
         }

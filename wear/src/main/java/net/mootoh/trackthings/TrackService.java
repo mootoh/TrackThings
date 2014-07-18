@@ -11,6 +11,7 @@ import com.google.android.gms.wearable.Wearable;
 public class TrackService extends IntentService {
     public static final String ACTION_SEND_CONTEXT = "ACTION_SEND_CONTEXT";
     public static final String ACTION_STOP_CONTEXT = "ACTION_STOP_CONTEXT";
+    public static final String ACTION_SHOW_SUMMARY = "ACTION_SHOW_SUMMARY";
     private static final String TAG = "TrackService";
     private static final String PATH_CONTEXTS = "/contexts";
     private static final String FIELD_CONTEXT = "context";
@@ -48,6 +49,8 @@ public class TrackService extends IntentService {
             putDataMapRequest.getDataMap().putString(FIELD_CONTEXT, context);
         } else if (action.equals(ACTION_STOP_CONTEXT)) {
             putDataMapRequest.getDataMap().putString(FIELD_COMMAND, "stop");
+        } else if (action.equals(ACTION_SHOW_SUMMARY)) {
+            putDataMapRequest.getDataMap().putString(FIELD_COMMAND, "show_summary");
         }
 
         Wearable.DataApi.putDataItem(client, putDataMapRequest.asPutDataRequest()).await();
