@@ -1,14 +1,11 @@
 package net.mootoh.trackthings;
 
 import android.app.Activity;
-import android.app.Notification;
-import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.speech.RecognizerIntent;
-import android.support.v4.app.NotificationCompat;
 import android.support.wearable.view.WearableListView;
 import android.util.Log;
 import android.view.LayoutInflater;
@@ -20,14 +17,14 @@ import java.util.Arrays;
 import java.util.List;
 
 class TrackAdapter extends WearableListView.Adapter {
-    private final Context context_;
+    private static final String TAG = "TrackAdapter";
     private final LayoutInflater layoutInflater_;
     String[] baseItems = {"Say...", "Stop"};
     List<String> items = new ArrayList<String>();
+    String currentContext;
 
     public TrackAdapter(Context context) {
         super();
-        context_ = context;
         layoutInflater_ = LayoutInflater.from(context);
 
         SharedPreferences pref = context.getSharedPreferences(context.getString(R.string.SHARED_PREF_KEY), Context.MODE_PRIVATE);
@@ -36,6 +33,8 @@ class TrackAdapter extends WearableListView.Adapter {
             String item = pref.getString("context_" + i, "");
             items.add(item);
         }
+
+        currentContext = pref.getString("currentContext", "Idle");
     }
 
     public List<String> getItems() {
@@ -43,12 +42,30 @@ class TrackAdapter extends WearableListView.Adapter {
     }
 
     @Override
-    public WearableListView.ViewHolder onCreateViewHolder(ViewGroup viewGroup, int i) {
-        return new WearableListView.ViewHolder(layoutInflater_.inflate(R.layout.track_item_layout, null));
+    public int getItemViewType(int position) {
+        return position == 0 ? 0 : 1;
+    }
+
+    @Override
+    public WearableListView.ViewHolder onCreateViewHolder(ViewGroup viewGroup, int viewType) {
+        return viewType == 0
+                ? new WearableListView.ViewHolder(layoutInflater_.inflate(R.layout.current_item_layout, null))
+                : new WearableListView.ViewHolder(layoutInflater_.inflate(R.layout.track_item_layout, null));
     }
 
     @Override
     public void onBindViewHolder(WearableListView.ViewHolder holder, int i) {
+        if (i-- == 0) {
+            TextView cc = (TextView)holder.itemView.findViewById(R.id.current_context);
+            cc.setText("Current: ");
+
+            TextView cts = (TextView)holder.itemView.findViewById(R.id.current_time_sofar);
+            cts.setText(currentContext);
+            holder.itemView.setTag(-1);
+
+            return;
+        }
+
         TextView view = (TextView)holder.itemView.findViewById(R.id.name);
 
         String item;
@@ -62,13 +79,13 @@ class TrackAdapter extends WearableListView.Adapter {
 
     @Override
     public int getItemCount() {
-        return items.size() + 2;
+        return items.size() + 3;
     }
 
     public void choose(int position) {
-        if (position < 2)
+        if (position < 3)
             return;
-        position -= 2;
+        position -= 3;
 
         // move the chosen item to the first place
         String chosen = items.remove(position);
@@ -77,13 +94,14 @@ class TrackAdapter extends WearableListView.Adapter {
 
     public void add(String newContext) {
         if (items.contains(newContext)) {
-            choose(items.indexOf(newContext) + 2);
+            choose(items.indexOf(newContext) + 3);
             return;
         }
 
         items.remove(items.size()-1);
         items.add(0, newContext);
     }
+
 }
 
 public class TrackActivity extends Activity {
@@ -105,16 +123,21 @@ public class TrackActivity extends Activity {
             @Override
             public void onClick(WearableListView.ViewHolder holder) {
                 Integer position = (Integer)holder.itemView.getTag();
+                if (position == -1) { // header
+                    return;
+                }
                 if (position == 0) { // say
                     displaySpeechRecognizer();
                     return;
                 } else if (position == 1) { // stop
                     stopCurrentContext();
+                    updateCurrentContext("Idle");
                     return;
                 }
                 TextView tv = (TextView)holder.itemView.findViewById(R.id.name);
                 String text = tv.getText().toString();
                 adapter_.choose(position);
+                updateCurrentContext(text);
                 saveItems();
                 sendTrackingContext(text);
             }
@@ -185,9 +208,17 @@ public class TrackActivity extends Activity {
             String spokenText = results.get(0);
 
             adapter_.add(spokenText);
+            updateCurrentContext(spokenText);
             saveItems();
             sendTrackingContext(spokenText);
         }
         super.onActivityResult(requestCode, resultCode, data);
+    }
+
+    public void updateCurrentContext(String current) {
+        SharedPreferences pref = getSharedPreferences(getString(R.string.SHARED_PREF_KEY), Context.MODE_PRIVATE);
+        SharedPreferences.Editor editor = pref.edit();
+        editor.putString("currentContext", current);
+        editor.commit();
     }
 }

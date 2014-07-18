@@ -2,19 +2,11 @@ package net.mootoh.trackthings;
 
 import android.app.IntentService;
 import android.content.Intent;
-import android.os.Bundle;
 import android.util.Log;
 
-import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.api.GoogleApiClient;
-import com.google.android.gms.wearable.MessageApi;
-import com.google.android.gms.wearable.MessageEvent;
 import com.google.android.gms.wearable.PutDataMapRequest;
 import com.google.android.gms.wearable.Wearable;
-
-import org.json.JSONObject;
-
-import java.util.concurrent.TimeUnit;
 
 public class TrackService extends IntentService {
     public static final String ACTION_SEND_CONTEXT = "ACTION_SEND_CONTEXT";
@@ -23,8 +15,6 @@ public class TrackService extends IntentService {
     private static final String PATH_CONTEXTS = "/contexts";
     private static final String FIELD_CONTEXT = "context";
     private static final String FIELD_COMMAND = "command";
-
-    private static final long CONNECTION_TIME_OUT_MS = 100;
 
     public TrackService() {
         super(TrackService.class.getSimpleName());
