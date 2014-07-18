@@ -70,7 +70,7 @@ public class DailySummaryActivity extends Activity {
 
                 Integer duration = item.getValue();
                 TextView du = (TextView)v.findViewById(R.id.duration);
-                du.setText(duration.toString());
+                du.setText(calcDuration(duration));
 
                 return v;
             }
@@ -104,6 +104,14 @@ public class DailySummaryActivity extends Activity {
         } catch (JSONException e) {
             e.printStackTrace();
         }
+    }
+
+    static public String calcDuration(long diff) {
+        long diffSeconds = diff / 1000 % 60;
+        long diffMinutes = diff / (60 * 1000) % 60;
+        long diffHours   = diff / (60 * 60 * 1000) % 60;
+
+        return "" + diffHours + ":" + diffMinutes + ":" + diffSeconds;
     }
 }
 
