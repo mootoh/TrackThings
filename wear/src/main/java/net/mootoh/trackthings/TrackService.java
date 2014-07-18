@@ -7,8 +7,12 @@ import android.util.Log;
 
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.api.GoogleApiClient;
+import com.google.android.gms.wearable.MessageApi;
+import com.google.android.gms.wearable.MessageEvent;
 import com.google.android.gms.wearable.PutDataMapRequest;
 import com.google.android.gms.wearable.Wearable;
+
+import org.json.JSONObject;
 
 import java.util.concurrent.TimeUnit;
 
@@ -20,7 +24,6 @@ public class TrackService extends IntentService {
     private static final String FIELD_CONTEXT = "context";
     private static final String FIELD_COMMAND = "command";
 
-    private GoogleApiClient googleApiClient_;
     private static final long CONNECTION_TIME_OUT_MS = 100;
 
     public TrackService() {
@@ -30,34 +33,16 @@ public class TrackService extends IntentService {
     @Override
     public void onCreate() {
         super.onCreate();
-        googleApiClient_ = new GoogleApiClient.Builder(this)
-                .addApi(Wearable.API)
-                .addConnectionCallbacks(new GoogleApiClient.ConnectionCallbacks() {
-                    @Override
-                    public void onConnected(Bundle bundle) {
-                    }
-
-                    @Override
-                    public void onConnectionSuspended(int i) {
-                    }
-                })
-                .addOnConnectionFailedListener(new GoogleApiClient.OnConnectionFailedListener() {
-                    @Override
-                    public void onConnectionFailed(ConnectionResult connectionResult) {
-                    }
-                })
-                .build();
     }
 
     @Override
     protected void onHandleIntent(Intent intent) {
         Log.d(TAG, "onHandleIntent");
 
-        googleApiClient_.blockingConnect(CONNECTION_TIME_OUT_MS, TimeUnit.MILLISECONDS);
-        if (Log.isLoggable(TAG, Log.VERBOSE)) {
-            Log.v(TAG, "TrackService.onHandleIntent");
-        }
-        if (! googleApiClient_.isConnected()) {
+        WearApplication app = (WearApplication)getApplication();
+        GoogleApiClient client = app.getGoogleApiClient();
+
+        if (! client.isConnected()) {
             Log.e(TAG, "Google API client not connected, nothing can do at this moment from wearable");
             return;
         }
@@ -75,6 +60,7 @@ public class TrackService extends IntentService {
             putDataMapRequest.getDataMap().putString(FIELD_COMMAND, "stop");
         }
 
-        Wearable.DataApi.putDataItem(googleApiClient_, putDataMapRequest.asPutDataRequest()).await();
+        Wearable.DataApi.putDataItem(client, putDataMapRequest.asPutDataRequest()).await();
     }
+
 }

@@ -2,6 +2,7 @@ package net.mootoh.trackthings;
 
 import android.app.Activity;
 import android.content.Context;
+import android.content.Intent;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.LayoutInflater;
@@ -13,18 +14,33 @@ import android.widget.BaseAdapter;
 import android.widget.ListView;
 import android.widget.TextView;
 
+import com.google.android.gms.common.ConnectionResult;
+import com.google.android.gms.common.api.GoogleApiClient;
+import com.google.android.gms.common.api.ResultCallback;
+import com.google.android.gms.wearable.MessageApi;
+import com.google.android.gms.wearable.Node;
+import com.google.android.gms.wearable.NodeApi;
+import com.google.android.gms.wearable.Wearable;
 import com.parse.FindCallback;
 import com.parse.Parse;
 import com.parse.ParseException;
 import com.parse.ParseObject;
 import com.parse.ParseQuery;
 
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
+
+import java.io.IOException;
+import java.io.ObjectOutputStream;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -88,8 +104,10 @@ class HandheldAdapter extends BaseAdapter {
 
 public class HandheldActivity extends Activity {
     private static final String TAG = "HandheldActivity";
+    private static final String SHOW_DAILY_SUMMARY_PATH = "/show_daily_summary";
     List<Map<String, Object>> history = new ArrayList<Map<String, Object>>();
     Map<String, Object> current;
+    private GoogleApiClient googleApiClient_;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -98,12 +116,33 @@ public class HandheldActivity extends Activity {
 
         ListView lv = (ListView)findViewById(R.id.listView);
         lv.setAdapter(new HandheldAdapter(history, this));
-   }
+
+        googleApiClient_ = new GoogleApiClient.Builder(this)
+                .addApi(Wearable.API)
+                .addConnectionCallbacks(new GoogleApiClient.ConnectionCallbacks() {
+                    @Override
+                    public void onConnected(Bundle bundle) {
+                        Log.d(TAG, "connected to google api");
+                    }
+
+                    @Override
+                    public void onConnectionSuspended(int i) {
+                        Log.d(TAG, "connection suspended");
+                    }
+                })
+                .addOnConnectionFailedListener(new GoogleApiClient.OnConnectionFailedListener() {
+                    @Override
+                    public void onConnectionFailed(ConnectionResult connectionResult) {
+                        Log.e(TAG, "google api connection failed: " + connectionResult.toString());
+                    }
+                }).build();
+    }
 
     @Override
     protected void onResume() {
         super.onResume();
         downloadFromParse();
+        googleApiClient_.connect();
     }
 
     private void downloadFromParse() {
@@ -160,8 +199,6 @@ public class HandheldActivity extends Activity {
         ListView lv = (ListView)findViewById(R.id.listView);
         HandheldAdapter adapter = (HandheldAdapter)lv.getAdapter();
         adapter.notifyDataSetChanged();
-
-        dailySummary();
     }
 
     // http://stackoverflow.com/questions/109383/how-to-sort-a-mapkey-value-on-the-values-in-java
@@ -179,25 +216,6 @@ public class HandheldActivity extends Activity {
             return 1;
         }
     }
-    private void dailySummary() {
-        Map<String, Long> items = new HashMap<String, Long>();
-        for (Map<String, Object> item : history) {
-            String title = (String)item.get("thing");
-
-            Long duration = (Long)items.get(title);
-            if (duration == null) {
-                duration = new Long(0);
-            }
-            duration += (Long)item.get("duration");
-            items.put(title, duration);
-        }
-
-        ValueComparator bvc = new ValueComparator(items);
-        TreeMap<String, Long> sortedMap = new TreeMap<String, Long>(bvc);
-        sortedMap.putAll(items);;
-
-        Log.d(TAG, "results: " + sortedMap);
-    }
 
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
@@ -214,7 +232,58 @@ public class HandheldActivity extends Activity {
         int id = item.getItemId();
         if (id == R.id.action_settings) {
             return true;
+        } else if (id == R.id.action_daily_summary) {
+            showDailySummary();
+            return true;
         }
         return super.onOptionsItemSelected(item);
+    }
+
+    private Map<String, Long> constructDailySummary() {
+        Map<String, Long> items = new HashMap<String, Long>();
+        for (Map<String, Object> item : history) {
+            String title = (String)item.get("thing");
+
+            Long duration = (Long)items.get(title);
+            if (duration == null) {
+                duration = new Long(0);
+            }
+            duration += (Long)item.get("duration");
+            items.put(title, duration);
+        }
+
+        ValueComparator bvc = new ValueComparator(items);
+        TreeMap<String, Long> sortedMap = new TreeMap<String, Long>(bvc);
+        sortedMap.putAll(items);;
+        return sortedMap;
+    }
+
+    private void showDailySummary() {
+        Map<String, Long> sortedMap = constructDailySummary();
+        Iterator it = sortedMap.entrySet().iterator();
+
+        final JSONObject json = new JSONObject();
+        while (it.hasNext()) {
+            Map.Entry<String, Long> item = (Map.Entry<String, Long>)it.next();
+            try {
+                json.put(item.getKey(), item.getValue());
+            } catch (JSONException e) {
+                e.printStackTrace();
+            }
+        }
+
+        Log.d(TAG, json.toString());
+
+        Wearable.NodeApi.getConnectedNodes(googleApiClient_).setResultCallback(new ResultCallback<NodeApi.GetConnectedNodesResult>() {
+            @Override
+            public void onResult(NodeApi.GetConnectedNodesResult nodes) {
+                Log.d(TAG, "get connected nodes result");
+                for (Node node : nodes.getNodes()) {
+                    Log.d(TAG, "node " + node.getId());
+                    Wearable.MessageApi.sendMessage(googleApiClient_, node.getId(), SHOW_DAILY_SUMMARY_PATH, json.toString().getBytes());
+                    return;
+                }
+            }
+        });
     }
 }
