@@ -27,9 +27,7 @@ import java.util.Set;
 import java.util.TreeMap;
 
 public class DailySummaryActivity extends Activity {
-
     private static final String TAG = "DailySummary";
-    Map<String, Integer> history;
     ArrayList<Map.Entry<String, Integer>> items = new ArrayList<Map.Entry<String, Integer>>();
 
     @Override
@@ -41,7 +39,7 @@ public class DailySummaryActivity extends Activity {
         wlv.setAdapter(new BaseAdapter() {
             @Override
             public int getCount() {
-                return items.size();
+                return items.size() + 1;
             }
 
             @Override
@@ -56,14 +54,19 @@ public class DailySummaryActivity extends Activity {
 
             @Override
             public View getView(int position, View convertView, ViewGroup parent) {
-                Map.Entry<String, Integer> item = (Map.Entry<String, Integer>) items.get(position);
-
                 View v = convertView;
+                LayoutInflater inflater = self.getLayoutInflater();
 
-                if (v == null) {
-                    LayoutInflater inflater = self.getLayoutInflater();
-                    v = inflater.inflate(R.layout.history_item_layout, null);
+                if (position-- == 0) {
+                    if (v == null || v.findViewById(R.id.name) != null)
+                        v = inflater.inflate(R.layout.history_header_layout, null);
+                    return v;
                 }
+
+                Map.Entry<String, Integer> item = items.get(position);
+
+                if (v == null || v.findViewById(R.id.name) == null)
+                    v = inflater.inflate(R.layout.history_item_layout, null);
 
                 TextView nm = (TextView)v.findViewById(R.id.name);
                 nm.setText(item.getKey());
@@ -76,9 +79,6 @@ public class DailySummaryActivity extends Activity {
             }
         });
 
-
-        setTitle("Daily Summary");
-
         Intent intent = getIntent();
         String jsonStr = intent.getStringExtra("json");
         try {
@@ -90,10 +90,14 @@ public class DailySummaryActivity extends Activity {
                 String key = (String) keys.next();
                 map.put(key, (Integer)obj.get(key));
             }
-            history = map;
-            Log.d(TAG, "history = " + history);
 
-            Iterator it = history.entrySet().iterator();
+            ValueComparator bvc = new ValueComparator(map);
+            TreeMap<String, Integer> sortedMap = new TreeMap<String, Integer>(bvc);
+            sortedMap.putAll(map);;
+
+            items.clear();
+
+            Iterator it = sortedMap.entrySet().iterator();
             while (it.hasNext()) {
                 Map.Entry<String, Integer> entry = (Map.Entry<String, Integer>) it.next();
                 items.add(entry);
@@ -107,11 +111,34 @@ public class DailySummaryActivity extends Activity {
     }
 
     static public String calcDuration(long diff) {
-        long diffSeconds = diff / 1000 % 60;
-        long diffMinutes = diff / (60 * 1000) % 60;
-        long diffHours   = diff / (60 * 60 * 1000) % 60;
+        long seconds = diff / 1000 % 60;
+        long minutes = diff / (60 * 1000) % 60;
+        long hours   = diff / (60 * 60 * 1000) % 60;
 
-        return "" + diffHours + ":" + diffMinutes + ":" + diffSeconds;
+        StringBuffer sb = new StringBuffer();
+        if (hours > 0) {
+            sb.append(hours);
+            sb.append(":");
+        }
+        sb.append(String.format("%02d:", minutes));
+        sb.append(String.format("%02d", seconds));
+
+        return sb.toString();
+    }
+
+    // http://stackoverflow.com/questions/109383/how-to-sort-a-mapkey-value-on-the-values-in-java
+    class ValueComparator implements Comparator<String> {
+        Map<String, Integer> base;
+
+        public ValueComparator(Map<String, Integer> base) {
+            this.base = base;
+        }
+
+        @Override
+        public int compare(String lhs, String rhs) {
+            if (base.get(lhs) >= base.get(rhs))
+                return -1;
+            return 1;
+        }
     }
 }
-
